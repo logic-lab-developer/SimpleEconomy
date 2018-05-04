@@ -1,0 +1,7 @@
+main: net.logic_lab.spigot.simpleeconomy.SimpleEconomyCore
+name: "${project.artifactId}"
+version: "${project.version}"
+author: "Shigeyuki Ohsumi"
+description: "This is a plugin to protect chests. It provides private settings and group settings."
+
+commands:
