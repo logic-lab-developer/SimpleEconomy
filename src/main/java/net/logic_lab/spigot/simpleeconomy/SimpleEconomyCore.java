@@ -19,10 +19,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -151,6 +148,14 @@ public class SimpleEconomyCore extends JavaPlugin {
             return meta.getLocalizedName() != null && meta.getLocalizedName().equals("money");
         }
 
+        private String find_SQL = "SELECT COUNT(*) AS user_count FROM simpleeconomy_account WHERE uuid = ?";
+
+        private String insert_SQL = "INSERT INTO simpleeconomy_account(name,uuid,balance,created_at,updated_at) VALUES(?,?,50000,NOW(),NOW())";
+
+        private String updata_SQL = "UPDATA simpleeconomy_account SET balance = ? WHERE uuid = ?";
+
+        private String select_SQL = "SELECT * FROM simpleeconomy_account WHER uuid = ?";
+
         private Boolean createAccount( Player player, int amount ){
             return false;
         }
@@ -164,6 +169,22 @@ public class SimpleEconomyCore extends JavaPlugin {
         }
 
         private Boolean hasAccount( Player player ){
+            try {
+
+                PreparedStatement ps = connection.prepareStatement( find_SQL);
+                ps.setString( 1 , player.getUniqueId().toString() );
+                ResultSet rs = ps.executeQuery();
+
+                while ( rs.next() ){
+
+                    getLogger().info( "user_count: " + rs.getInt( "user_count" ) );
+
+                }
+
+            } catch (SQLException e) {
+                getLogger().warning("SQL error.");
+            }
+
             return false;
         }
 
@@ -201,6 +222,7 @@ public class SimpleEconomyCore extends JavaPlugin {
     private void setupTables(){
 
         HashMap<String,String> sqls = new HashMap<>();
+
 
         sqls.put("account",
                 "CREATE TABLE IF NOT EXISTS " + config.getTablePrefix() + "account("
