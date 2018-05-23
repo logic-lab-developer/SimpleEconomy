@@ -2,6 +2,8 @@ package net.logic_lab.spigot.simpleeconomy;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -148,46 +150,6 @@ public class SimpleEconomyCore extends JavaPlugin {
             return meta.getLocalizedName() != null && meta.getLocalizedName().equals("money");
         }
 
-        private String find_SQL = "SELECT COUNT(*) AS user_count FROM simpleeconomy_account WHERE uuid = ?";
-
-        private String insert_SQL = "INSERT INTO simpleeconomy_account(name,uuid,balance,created_at,updated_at) VALUES(?,?,50000,NOW(),NOW())";
-
-        private String updata_SQL = "UPDATA simpleeconomy_account SET balance = ? WHERE uuid = ?";
-
-        private String select_SQL = "SELECT * FROM simpleeconomy_account WHER uuid = ?";
-
-        private Boolean createAccount( Player player, int amount ){
-            return false;
-        }
-
-        private Boolean addManey( Player player, int amount) {
-            return false;
-        }
-
-        private Boolean subManey( Player player, int amount ){
-            return false;
-        }
-
-        private Boolean hasAccount( Player player ){
-            try {
-
-                PreparedStatement ps = connection.prepareStatement( find_SQL);
-                ps.setString( 1 , player.getUniqueId().toString() );
-                ResultSet rs = ps.executeQuery();
-
-                while ( rs.next() ){
-
-                    getLogger().info( "user_count: " + rs.getInt( "user_count" ) );
-
-                }
-
-            } catch (SQLException e) {
-                getLogger().warning("SQL error.");
-            }
-
-            return false;
-        }
-
         private ItemStack createMoneyItem( int amount ){
 
             ItemStack hoe = new ItemStack( Material.WOOD_HOE, amount, (short)1 );
@@ -218,6 +180,138 @@ public class SimpleEconomyCore extends JavaPlugin {
         }
 
     }
+
+    private String find_SQL = "SELECT COUNT(*) AS user_count FROM simpleeconomy_account WHERE uuid = ?";
+
+    private String insert_SQL = "INSERT INTO simpleeconomy_account(name,uuid,balance,created_at,updated_at) VALUES(?,?,?,NOW(),NOW())";
+
+    private String updata_SQL = "UPDATA simpleeconomy_account SET balance = ? , updated_at = NOW() WHERE uuid = ?";
+
+    private String select_SQL = "SELECT balance FROM simpleeconomy_account WHERE uuid = ?";
+
+    private Boolean createAccount( Player player, int amount ){
+
+        try {
+
+            PreparedStatement ps = connection.prepareStatement(insert_SQL);
+            ps.setString( 1,player.getName() );
+            ps.setString( 2,player.getUniqueId().toString() );
+            ps.setInt( 3,amount );
+            ResultSet rs = ps.executeQuery();
+
+            return true;
+
+        }
+
+        catch (SQLException e){
+
+            getLogger().warning( "SQL error.");
+
+            return false;
+
+        }
+
+    }
+
+    private Boolean addMoney( Player player, int amount) {
+
+
+        try {
+
+            PreparedStatement ps = connection.prepareStatement(updata_SQL);
+            ps.setInt( 1 , getBalance( player ) + amount );
+            ps.setString( 2 , player.getUniqueId().toString() );
+            ResultSet rs = ps.executeQuery();
+
+        }catch (SQLException e){
+
+            getLogger().warning( "SQL error");
+
+        }
+
+
+
+
+        return false;
+    }
+
+    private Boolean subMoney( Player player, int amount ){
+
+        try {
+
+            PreparedStatement ps = connection.prepareStatement( updata_SQL );
+            ps.setInt( 1, getBalance( player ) - amount );
+            ps.setString( 2, player.getUniqueId().toString() );
+            ResultSet rs = ps.executeQuery();
+
+        }catch (SQLException e){
+
+            getLogger().warning( "SQL error" );
+
+        }
+
+        return false;
+    }
+
+    private Boolean hasAccount( Player player ){
+
+        try {
+
+            PreparedStatement ps = connection.prepareStatement( find_SQL );
+            ps.setString( 1 , player.getUniqueId().toString() );
+            ResultSet rs = ps.executeQuery();
+
+            rs.next();
+
+            if ( rs.getInt( "user_count" ) == 0 ){
+
+                return false;
+
+            }else {
+
+                return true;
+
+            }
+
+        } catch (SQLException e) {
+            getLogger().warning("SQL error.");
+        }
+
+        return false;
+    }
+
+    private int getBalance( Player player ){
+
+        if ( hasAccount( player ) ){
+
+            try {
+
+                PreparedStatement ps = connection.prepareStatement( select_SQL );
+                ps.setString( 1 , player.getUniqueId().toString() );
+                ResultSet rs = ps.executeQuery();
+
+                rs.next();
+
+                return rs.getInt( "balance" );
+
+            }catch (SQLException e) {
+
+                getLogger().warning( "SQL error" );
+                getLogger().warning( e.toString() );
+
+            }
+
+
+        }else {
+
+            return -1;
+
+        }
+
+        return -1;
+
+    }
+
 
     private void setupTables(){
 
@@ -309,6 +403,76 @@ public class SimpleEconomyCore extends JavaPlugin {
 
         // イベントの抹消
         HandlerList.unregisterAll(listener);
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args ) {
+        if ( sender instanceof Player ){
+
+            Player player = (Player)sender;
+
+            if ( cmd.getName().equalsIgnoreCase( "balance" ) ){
+
+                int balance = getBalance( player );
+
+                if ( balance == -1 ){
+
+                    sender.sendMessage( ChatColor.RED + "内部エラーが発生しました。" );
+                    return false;
+                }
+                else {
+
+                    sender.sendMessage( "残高:" + balance );
+                    return true;
+
+                }
+            }
+            else if ( cmd.getName().equalsIgnoreCase( "money" )){
+
+                if ( args.length == 3 ){
+
+                    if ( args[0].equalsIgnoreCase( "give" )){
+
+                        Player target = getServer().getPlayer( args[1] );
+
+                        if ( target == null ){
+
+                            sender.sendMessage( ChatColor.RED + args[1] + "が見つかりませんでした" );
+                            return false;
+
+                        }
+
+                        if ( hasAccount( target ) == false ){
+
+                            return false;
+
+                        }
+
+                        if ( getBalance( player ) > Integer.parseInt( args[2] ) ){
+                            return false;
+                        }
+
+                        addMoney( target , Integer.parseInt( args[2] ));
+                        subMoney( player , Integer.parseInt( args[2] ));
+
+                    }
+                    else {
+                        return false;
+                    }
+
+                }
+                else {
+
+                    return false;
+
+                }
+            }
+
+
+        }
+
+        return false;
+
     }
 
 

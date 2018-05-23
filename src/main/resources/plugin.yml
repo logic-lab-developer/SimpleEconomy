@@ -3,5 +3,10 @@ name: "${project.artifactId}"
 version: "${project.version}"
 author: "Shigeyuki Ohsumi"
 description: "This is a plugin to protect chests. It provides private settings and group settings."
-
 commands:
+  balance:
+    description: "残高っす"
+    usage: /balance
+  money:
+    description: "お金が渡せるっす"
+    usage: /money
