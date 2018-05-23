@@ -206,6 +206,7 @@ public class SimpleEconomyCore extends JavaPlugin {
         catch (SQLException e){
 
             getLogger().warning( "SQL error.");
+            getLogger().warning( e.toString() );
 
             return false;
 
