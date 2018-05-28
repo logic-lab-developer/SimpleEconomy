@@ -197,7 +197,7 @@ public class SimpleEconomyCore extends JavaPlugin {
             ps.setString( 1,player.getName() );
             ps.setString( 2,player.getUniqueId().toString() );
             ps.setInt( 3,amount );
-            ResultSet rs = ps.executeQuery();
+            int rs = ps.executeUpdate();
 
             return true;
 
@@ -222,7 +222,7 @@ public class SimpleEconomyCore extends JavaPlugin {
             PreparedStatement ps = connection.prepareStatement(updata_SQL);
             ps.setInt( 1 , getBalance( player ) + amount );
             ps.setString( 2 , player.getUniqueId().toString() );
-            ResultSet rs = ps.executeQuery();
+            int rs = ps.executeUpdate();
 
         }catch (SQLException e){
 
@@ -243,7 +243,7 @@ public class SimpleEconomyCore extends JavaPlugin {
             PreparedStatement ps = connection.prepareStatement( updata_SQL );
             ps.setInt( 1, getBalance( player ) - amount );
             ps.setString( 2, player.getUniqueId().toString() );
-            ResultSet rs = ps.executeQuery();
+            int rs = ps.executeUpdate();
 
         }catch (SQLException e){
 
