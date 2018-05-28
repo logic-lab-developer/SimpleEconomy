@@ -185,9 +185,11 @@ public class SimpleEconomyCore extends JavaPlugin {
 
     private String insert_SQL = "INSERT INTO simpleeconomy_account(name,uuid,balance,created_at,updated_at) VALUES(?,?,?,NOW(),NOW())";
 
-    private String updata_SQL = "UPDATA simpleeconomy_account SET balance = ? , updated_at = NOW() WHERE uuid = ?";
+    private String updata_SQL = "UPDATE simpleeconomy_account SET balance = ? , updated_at = NOW() WHERE uuid = ?";
 
     private String select_SQL = "SELECT balance FROM simpleeconomy_account WHERE uuid = ?";
+
+    private String last_rate_SQL = "SELECT * FROM simpleeconomy_rate WHERE created_at > current_timestamp() - interval 1 hour ORDER BY id DESC LIMIT 1";
 
     private Boolean createAccount( Player player, int amount ){
 
@@ -247,7 +249,7 @@ public class SimpleEconomyCore extends JavaPlugin {
 
         }catch (SQLException e){
 
-            getLogger().warning( "SQL error" );
+            getLogger().warning( e.toString() );
 
         }
 
@@ -313,11 +315,46 @@ public class SimpleEconomyCore extends JavaPlugin {
 
     }
 
+    private int getLastRate(){
+
+
+        try {
+
+            PreparedStatement ps = connection.prepareStatement( last_rate_SQL );
+            ResultSet rs = ps.executeQuery();
+
+            if ( rs.next() ){
+
+                return rs.getInt( "rate" );
+
+            }
+            else {
+
+                return 100;
+
+            }
+
+        }catch (SQLException e){
+
+        }
+
+        return -1;
+
+    }
 
     private void setupTables(){
 
         HashMap<String,String> sqls = new HashMap<>();
 
+        sqls.put("ratetable",
+
+                "CREATE TABLE IF NOT EXISTS " + config.getTablePrefix() + "ratetable("
+                        + "    id           INTEGER     NOT NULL AUTO_INCREMENT,"
+                        + "    rate         INTEGER     NOT NULL,"
+                        + "    created_at   DATETIME,"
+                        + "    PRIMARY KYE(id)"
+                        + ");"
+        );
 
         sqls.put("account",
                 "CREATE TABLE IF NOT EXISTS " + config.getTablePrefix() + "account("
@@ -435,7 +472,7 @@ public class SimpleEconomyCore extends JavaPlugin {
                     if ( args[0].equalsIgnoreCase( "give" )){
 
                         Player target = getServer().getPlayer( args[1] );
-
+                        getLogger().info( target.toString() );
                         if ( target == null ){
 
                             sender.sendMessage( ChatColor.RED + args[1] + "が見つかりませんでした" );
@@ -445,16 +482,24 @@ public class SimpleEconomyCore extends JavaPlugin {
 
                         if ( hasAccount( target ) == false ){
 
+                            player.sendMessage( "相手の銀行口座が存在しませんでした" );
+
                             return false;
 
                         }
 
-                        if ( getBalance( player ) > Integer.parseInt( args[2] ) ){
+                        if ( getBalance( player ) < Integer.parseInt( args[2] ) ){
+
+                            player.sendMessage( "渡すお金が足りませんでした" );
+                            player.sendMessage( getBalance( player ) + "円しか持っていません" );
+
                             return false;
                         }
 
                         addMoney( target , Integer.parseInt( args[2] ));
                         subMoney( player , Integer.parseInt( args[2] ));
+                        target.sendMessage( "お金を" + player.getName() + "から" + Integer.parseInt( args[2] ) + "円受け取りました" );
+                        player.sendMessage( "お金を" + target.getName() + "に" +  Integer.parseInt( args[2] ) + "円渡しました" );
 
                     }
                     else {
@@ -467,6 +512,10 @@ public class SimpleEconomyCore extends JavaPlugin {
                     return false;
 
                 }
+            }else if ( cmd.getName().equalsIgnoreCase( "rate" ) ){
+
+                player.sendMessage( getLastRate() + "" );
+
             }
 
 
