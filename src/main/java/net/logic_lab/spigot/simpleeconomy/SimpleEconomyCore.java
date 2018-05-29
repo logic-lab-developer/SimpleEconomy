@@ -1,5 +1,6 @@
 package net.logic_lab.spigot.simpleeconomy;
 
+import com.google.common.util.concurrent.RateLimiter;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
@@ -189,7 +190,7 @@ public class SimpleEconomyCore extends JavaPlugin {
 
     private String select_SQL = "SELECT balance FROM simpleeconomy_account WHERE uuid = ?";
 
-    private String last_rate_SQL = "SELECT * FROM simpleeconomy_rate WHERE created_at > current_timestamp() - interval 1 hour ORDER BY id DESC LIMIT 1";
+    private String last_rate_SQL = "SELECT * FROM simpleeconomy_ratetable WHERE created_at > current_timestamp() - interval 1 hour ORDER BY id DESC LIMIT 1";
 
     private Boolean createAccount( Player player, int amount ){
 
@@ -336,6 +337,8 @@ public class SimpleEconomyCore extends JavaPlugin {
 
         }catch (SQLException e){
 
+            getLogger().warning( "SQL error " + e.toString() );
+
         }
 
         return -1;
@@ -352,7 +355,7 @@ public class SimpleEconomyCore extends JavaPlugin {
                         + "    id           INTEGER     NOT NULL AUTO_INCREMENT,"
                         + "    rate         INTEGER     NOT NULL,"
                         + "    created_at   DATETIME,"
-                        + "    PRIMARY KYE(id)"
+                        + "    PRIMARY KEY(id)"
                         + ");"
         );
 
@@ -449,27 +452,11 @@ public class SimpleEconomyCore extends JavaPlugin {
 
             Player player = (Player)sender;
 
-            if ( cmd.getName().equalsIgnoreCase( "balance" ) ){
+            if ( cmd.getName().equalsIgnoreCase( "money" )){
 
-                int balance = getBalance( player );
+                if ( args[0].equalsIgnoreCase( "give" ) ){
 
-                if ( balance == -1 ){
-
-                    sender.sendMessage( ChatColor.RED + "内部エラーが発生しました。" );
-                    return false;
-                }
-                else {
-
-                    sender.sendMessage( "残高:" + balance );
-                    return true;
-
-                }
-            }
-            else if ( cmd.getName().equalsIgnoreCase( "money" )){
-
-                if ( args.length == 3 ){
-
-                    if ( args[0].equalsIgnoreCase( "give" )){
+                    if ( args.length == 3 ){
 
                         Player target = getServer().getPlayer( args[1] );
                         getLogger().info( target.toString() );
@@ -482,7 +469,7 @@ public class SimpleEconomyCore extends JavaPlugin {
 
                         if ( hasAccount( target ) == false ){
 
-                            player.sendMessage( "相手の銀行口座が存在しませんでした" );
+                            player.sendMessage( ChatColor.RED + "相手の銀行口座が存在しませんでした" );
 
                             return false;
 
@@ -490,20 +477,75 @@ public class SimpleEconomyCore extends JavaPlugin {
 
                         if ( getBalance( player ) < Integer.parseInt( args[2] ) ){
 
-                            player.sendMessage( "渡すお金が足りませんでした" );
-                            player.sendMessage( getBalance( player ) + "円しか持っていません" );
+                            player.sendMessage( ChatColor.RED + "渡すお金が足りませんでした" );
+                            player.sendMessage( ChatColor.RED + "" + getBalance( player ) + "円しか持っていません" );
 
                             return false;
                         }
 
                         addMoney( target , Integer.parseInt( args[2] ));
                         subMoney( player , Integer.parseInt( args[2] ));
-                        target.sendMessage( "お金を" + player.getName() + "から" + Integer.parseInt( args[2] ) + "円受け取りました" );
-                        player.sendMessage( "お金を" + target.getName() + "に" +  Integer.parseInt( args[2] ) + "円渡しました" );
+                        target.sendMessage( ChatColor.YELLOW + "お金を" + player.getName() + "から" + Integer.parseInt( args[2] ) + "円受け取りました" );
+                        player.sendMessage( ChatColor.YELLOW + "お金を" + target.getName() + "に" +  Integer.parseInt( args[2] ) + "円渡しました" );
 
                     }
                     else {
                         return false;
+                    }
+
+                }
+                else if ( args[0].equalsIgnoreCase( "rate" ) ){
+
+                    int Rate = getLastRate();
+
+                    if ( Rate == -1 ){
+
+                        player.sendMessage( ChatColor.RED + "内部エラーが発生しました" );
+
+                        return false;
+
+                    }else {
+
+                        player.sendMessage( ChatColor.YELLOW + "現在のレート：" + getLastRate() + "" );
+
+                        return true;
+
+                    }
+
+                }else if ( args[0].equalsIgnoreCase( "balance" )){
+
+                    int balance = getBalance( player );
+
+                    if ( balance == -1 ){
+
+                        sender.sendMessage( ChatColor.RED + "内部エラーが発生しました。" );
+                        return false;
+                    }
+                    else {
+
+                        sender.sendMessage( ChatColor.YELLOW + "残高:" + balance );
+                        return true;
+
+                    }
+
+                }else if ( args.length == 0 ){
+
+                    player.sendMessage( ChatColor.YELLOW + "Moneyコマンドの使い方はMoney helpを実行して確認してください" );
+
+                    return true;
+
+                }else if ( args[0].equalsIgnoreCase( "help" ) ){
+
+                    if ( args.length == 1 ){
+
+                        player.sendMessage( ChatColor.YELLOW + "-----Money help-----" );
+                        player.sendMessage( ChatColor.YELLOW + "/Money help - ヘルプの表示" );
+                        player.sendMessage( ChatColor.YELLOW + "/Money give <お金を渡す相手の名前> <金額> - お金を相手に渡せます");
+                        player.sendMessage( ChatColor.YELLOW + "/Money balance - 自分の所持金を確認します" );
+                        player.sendMessage( ChatColor.YELLOW + "/Money rate - 現在のレートを確認します" );
+
+                        return true;
+
                     }
 
                 }
@@ -512,10 +554,6 @@ public class SimpleEconomyCore extends JavaPlugin {
                     return false;
 
                 }
-            }else if ( cmd.getName().equalsIgnoreCase( "rate" ) ){
-
-                player.sendMessage( getLastRate() + "" );
-
             }
 
 
