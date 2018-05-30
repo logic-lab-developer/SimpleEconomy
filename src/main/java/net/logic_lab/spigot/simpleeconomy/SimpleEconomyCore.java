@@ -184,8 +184,6 @@ public class SimpleEconomyCore extends JavaPlugin {
 
     private String find_SQL = "SELECT COUNT(*) AS user_count FROM simpleeconomy_account WHERE uuid = ?";
 
-    private String insert_SQL = "INSERT INTO simpleeconomy_account(name,uuid,balance,created_at,updated_at) VALUES(?,?,?,NOW(),NOW())";
-
     private String updata_SQL = "UPDATE simpleeconomy_account SET balance = ? , updated_at = NOW() WHERE uuid = ?";
 
     private String select_SQL = "SELECT balance FROM simpleeconomy_account WHERE uuid = ?";
@@ -194,29 +192,34 @@ public class SimpleEconomyCore extends JavaPlugin {
 
     private String insert_last_rate_SQL = "INSERT INTO simpleeconomy_ratetable(rate,created_at) VALUES(?,NOW())";
 
+    // 口座作成
+    private final String ACCOUNT_INSERT_SQL = "INSERT INTO simpleeconomy_account( name, uuid, balance, created_at, updated_at ) VALUES( ?, ?, ?, NOW(), NOW() )";
+
     private Boolean createAccount( Player player, int amount ){
 
         try {
 
-            PreparedStatement ps = connection.prepareStatement(insert_SQL);
-            ps.setString( 1,player.getName() );
-            ps.setString( 2,player.getUniqueId().toString() );
-            ps.setInt( 3,amount );
-            int rs = ps.executeUpdate();
+            // 口座情報をInsertする
+            PreparedStatement ps = connection.prepareStatement( ACCOUNT_INSERT_SQL );
+            ps.setString( 1, player.getName() );
+            ps.setString( 2, player.getUniqueId().toString() );
+            ps.setInt( 3, amount );
 
-            return true;
+            // SQLを実行して、結果をログ出力
+            int rows = ps.executeUpdate();
+            getLogger().info( "[Account Create] Player: " + player.getDisplayName() + ", Result: " + rows + " row(s)" );
 
         }
-
-        catch (SQLException e){
-
-            getLogger().warning( "SQL error.");
-            getLogger().warning( e.toString() );
-
+        catch ( SQLException e ){
+            getLogger().warning( "[SQL Error] " + e.getMessage() );
             return false;
-
+        }
+        catch ( Exception e ){
+            getLogger().warning( "[Unknown Error] " + e.getMessage() );
+            return false;
         }
 
+        return true;
     }
 
     private Boolean addMoney( Player player, int amount) {
@@ -261,29 +264,41 @@ public class SimpleEconomyCore extends JavaPlugin {
 
     private Boolean hasAccount( Player player ){
 
+        // アカウントが存在するかのカウント
+        int user_count;
+
         try {
 
+            // 指定されたUUIDで検索するよ
             PreparedStatement ps = connection.prepareStatement( find_SQL );
             ps.setString( 1 , player.getUniqueId().toString() );
             ResultSet rs = ps.executeQuery();
 
-            rs.next();
-
-            if ( rs.getInt( "user_count" ) == 0 ){
-
-                return false;
-
-            }else {
-
-                return true;
-
+            // COUNT(*)だから、レコードは絶対取れるはず。
+            if( rs.next() ){
+                user_count = rs.getInt( "user_count" );
+            }
+            else {
+                throw new SQLException( "Couldn't read user_count field. SQL: " + find_SQL );
             }
 
-        } catch (SQLException e) {
-            getLogger().warning("SQL error.");
+        }
+        catch ( SQLException e ){
+            getLogger().warning( "[SQL Error] " + e.getMessage() );
+            return false;
+        }
+        catch ( Exception e ){
+            getLogger().warning( "[Unknown Error] " + e.getMessage() );
+            return false;
         }
 
-        return false;
+        // 1行でない = おかしい
+        if( user_count != 1 ){
+            getLogger().info( "[Account not found] Player: " + player.getDisplayName() );
+            return false;
+        }
+
+        return true;
     }
 
     private int getBalance( Player player ){
