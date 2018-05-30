@@ -83,6 +83,8 @@ public class SimpleEconomyCore extends JavaPlugin {
 
         }
 
+        private int moneymaxstacksize = 100;
+
         @EventHandler
         public void onPickupMoney( EntityPickupItemEvent event ){
 
@@ -118,9 +120,9 @@ public class SimpleEconomyCore extends JavaPlugin {
                     if( isMoney(itemStack) ){
 
                         // フルスタックでない
-                        if( itemStack.getAmount() < 64 ){
+                        if( itemStack.getAmount() < moneymaxstacksize ){
 
-                            int stack = 64 - itemStack.getAmount();
+                            int stack = moneymaxstacksize - itemStack.getAmount();
 
                             if( pickupStack < stack ){
                                 itemStack.setAmount( itemStack.getAmount() + pickupStack );
@@ -128,7 +130,7 @@ public class SimpleEconomyCore extends JavaPlugin {
                                 break;
                             }
 
-                            itemStack.setAmount( 64 );
+                            itemStack.setAmount( moneymaxstacksize );
                             pickupStack -= stack;
                         }
 
@@ -182,15 +184,15 @@ public class SimpleEconomyCore extends JavaPlugin {
 
     }
 
-    private String find_SQL = "SELECT COUNT(*) AS user_count FROM simpleeconomy_account WHERE uuid = ?";
+    private final String FIND_SQL = "SELECT COUNT(*) AS user_count FROM simpleeconomy_account WHERE uuid = ?";
 
-    private String updata_SQL = "UPDATE simpleeconomy_account SET balance = ? , updated_at = NOW() WHERE uuid = ?";
+    private final String UPDATE_SQL = "UPDATE simpleeconomy_account SET balance = ? , updated_at = NOW() WHERE uuid = ?";
 
-    private String select_SQL = "SELECT balance FROM simpleeconomy_account WHERE uuid = ?";
+    private final String SELECT_SQL = "SELECT balance FROM simpleeconomy_account WHERE uuid = ?";
 
-    private String last_rate_SQL = "SELECT * FROM simpleeconomy_ratetable WHERE created_at > current_timestamp() - interval 1 hour ORDER BY id DESC LIMIT 1";
+    private final String last_rate_SQL = "SELECT * FROM simpleeconomy_ratetable WHERE created_at > current_timestamp() - interval 1 hour ORDER BY id DESC LIMIT 1";
 
-    private String insert_last_rate_SQL = "INSERT INTO simpleeconomy_ratetable(rate,created_at) VALUES(?,NOW())";
+    private final String INSERT_last_rate_SQL = "INSERT INTO simpleeconomy_ratetable(rate,created_at) VALUES(?,NOW())";
 
     // 口座作成
     private final String ACCOUNT_INSERT_SQL = "INSERT INTO simpleeconomy_account( name, uuid, balance, created_at, updated_at ) VALUES( ?, ?, ?, NOW(), NOW() )";
@@ -227,15 +229,18 @@ public class SimpleEconomyCore extends JavaPlugin {
 
         try {
 
-            PreparedStatement ps = connection.prepareStatement(updata_SQL);
+            PreparedStatement ps = connection.prepareStatement( UPDATE_SQL );
             ps.setInt( 1 , getBalance( player ) + amount );
             ps.setString( 2 , player.getUniqueId().toString() );
             int rs = ps.executeUpdate();
+            getLogger().info( "[addMoney] Player:" + player.getDisplayName() + ", Result:" + rs );
 
         }catch (SQLException e){
-
-            getLogger().warning( "SQL error");
-
+            getLogger().warning( "[SQL Error] " + e.getMessage() );
+            return false;
+        }catch ( Exception e ){
+            getLogger().warning( "[Unknown Error] " + e.getMessage() );
+            return false;
         }
 
 
@@ -248,15 +253,18 @@ public class SimpleEconomyCore extends JavaPlugin {
 
         try {
 
-            PreparedStatement ps = connection.prepareStatement( updata_SQL );
+            PreparedStatement ps = connection.prepareStatement( UPDATE_SQL );
             ps.setInt( 1, getBalance( player ) - amount );
             ps.setString( 2, player.getUniqueId().toString() );
             int rs = ps.executeUpdate();
+            getLogger().info( "[subMoney] Player:" + player.getDisplayName() + ", Result:" + rs );
 
-        }catch (SQLException e){
-
-            getLogger().warning( e.toString() );
-
+        }catch ( SQLException e ){
+            getLogger().warning( "[SQL Error] " + e.getMessage() );
+            return false;
+        }catch ( Exception e ){
+            getLogger().warning( "[Unknown Error] " + e.getMessage() );
+            return false;
         }
 
         return false;
@@ -270,16 +278,17 @@ public class SimpleEconomyCore extends JavaPlugin {
         try {
 
             // 指定されたUUIDで検索するよ
-            PreparedStatement ps = connection.prepareStatement( find_SQL );
+            PreparedStatement ps = connection.prepareStatement( FIND_SQL );
             ps.setString( 1 , player.getUniqueId().toString() );
             ResultSet rs = ps.executeQuery();
+            getLogger().info( "[hasAccount] Player:" + player.getDisplayName() + ", Result:" + rs);
 
             // COUNT(*)だから、レコードは絶対取れるはず。
             if( rs.next() ){
                 user_count = rs.getInt( "user_count" );
             }
             else {
-                throw new SQLException( "Couldn't read user_count field. SQL: " + find_SQL );
+                throw new SQLException( "Couldn't read user_count field. SQL: " + FIND_SQL );
             }
 
         }
@@ -303,34 +312,32 @@ public class SimpleEconomyCore extends JavaPlugin {
 
     private int getBalance( Player player ){
 
-        if ( hasAccount( player ) ){
+        int balance;
 
-            try {
+        try {
 
-                PreparedStatement ps = connection.prepareStatement( select_SQL );
-                ps.setString( 1 , player.getUniqueId().toString() );
-                ResultSet rs = ps.executeQuery();
+            PreparedStatement ps = connection.prepareStatement( SELECT_SQL );
+            ps.setString( 1 , player.getUniqueId().toString() );
+            ResultSet rs = ps.executeQuery();
 
-                rs.next();
-
-                return rs.getInt( "balance" );
-
-            }catch (SQLException e) {
-
-                getLogger().warning( "SQL error" );
-                getLogger().warning( e.toString() );
-
+            if ( rs.next() ){
+                balance = rs.getInt( "balance" );
+            }
+            else {
+                balance = -1;
             }
 
-
-        }else {
-
+        }
+        catch ( SQLException e ){
+            getLogger().warning( "[SQL Error] " + e.getMessage() );
             return -1;
-
+        }
+        catch ( Exception e ){
+            getLogger().warning( "[Unknown Error] " + e.getMessage() );
+            return -1;
         }
 
-        return -1;
-
+        return balance;
     }
 
     private int getLastRate(){
@@ -358,10 +365,12 @@ public class SimpleEconomyCore extends JavaPlugin {
 
             }
 
-        }catch (SQLException e){
-
-            getLogger().warning( "SQL error " + e.toString() );
-
+        }catch ( SQLException e ){
+            getLogger().warning( "[SQL Error] " + e.getMessage() );
+            return -1;
+        }catch ( Exception e ){
+            getLogger().warning( "[Unknown Error] " + e.getMessage() );
+            return -1;
         }
 
         return -1;
@@ -372,19 +381,20 @@ public class SimpleEconomyCore extends JavaPlugin {
 
         try {
 
-            PreparedStatement ps = connection.prepareStatement( insert_last_rate_SQL );
+            PreparedStatement ps = connection.prepareStatement( INSERT_last_rate_SQL );
             ps.setInt( 1 , rate );
             int rs = ps.executeUpdate();
 
             return true;
 
 
-        }catch (SQLException e){
-
-            getLogger().warning( "SQL error" );
-
+        }catch ( SQLException e ){
+            getLogger().warning( "[SQL Error] " + e.getMessage() );
             return false;
 
+        }catch ( Exception e ){
+            getLogger().warning( "[SQL Error] " + e.getMessage() );
+            return false;
         }
 
     }
@@ -597,7 +607,11 @@ public class SimpleEconomyCore extends JavaPlugin {
                     }
 
                 }
-                else if ( args[1])
+                else if ( args[0].equalsIgnoreCase("deposit" ) ){
+
+
+
+                }
                 else {
 
                     return false;
