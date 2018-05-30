@@ -192,6 +192,8 @@ public class SimpleEconomyCore extends JavaPlugin {
 
     private String last_rate_SQL = "SELECT * FROM simpleeconomy_ratetable WHERE created_at > current_timestamp() - interval 1 hour ORDER BY id DESC LIMIT 1";
 
+    private String insert_last_rate_SQL = "INSERT INTO simpleeconomy_ratetable(rate,created_at) VALUES(?,NOW())";
+
     private Boolean createAccount( Player player, int amount ){
 
         try {
@@ -329,9 +331,15 @@ public class SimpleEconomyCore extends JavaPlugin {
                 return rs.getInt( "rate" );
 
             }
-            else {
+            else{
 
-                return 100;
+                int rate = 100;
+
+                if ( insert_last_rate(rate) ){
+
+                    return rate;
+
+                }
 
             }
 
@@ -342,6 +350,27 @@ public class SimpleEconomyCore extends JavaPlugin {
         }
 
         return -1;
+
+    }
+
+    private boolean insert_last_rate( int rate ) {
+
+        try {
+
+            PreparedStatement ps = connection.prepareStatement( insert_last_rate_SQL );
+            ps.setInt( 1 , rate );
+            int rs = ps.executeUpdate();
+
+            return true;
+
+
+        }catch (SQLException e){
+
+            getLogger().warning( "SQL error" );
+
+            return false;
+
+        }
 
     }
 
@@ -542,7 +571,7 @@ public class SimpleEconomyCore extends JavaPlugin {
                         player.sendMessage( ChatColor.YELLOW + "/Money help - ヘルプの表示" );
                         player.sendMessage( ChatColor.YELLOW + "/Money give <お金を渡す相手の名前> <金額> - お金を相手に渡せます");
                         player.sendMessage( ChatColor.YELLOW + "/Money balance - 自分の所持金を確認します" );
-                        player.sendMessage( ChatColor.YELLOW + "/Money rate - 現在のレートを確認します" );
+                        player.sendMessage( ChatColor.YELLOW + "/Money rate [エメラルドの個数] - 現在のレートを確認します" );
 
                         return true;
 
