@@ -535,7 +535,17 @@ public class SimpleEconomyCore extends JavaPlugin {
 
                     }else {
 
-                        player.sendMessage( ChatColor.YELLOW + "現在のレート：" + getLastRate() + "" );
+                        if ( args.length == 2 ){
+
+                            player.sendMessage( ChatColor.YELLOW + args[1] + "エメラルドを変換した場合：" + Integer.parseInt( args[1] ) * getLastRate() );
+
+                        }
+                        else if ( args.length == 1 ){
+
+                            player.sendMessage( ChatColor.YELLOW + "現在のレート：" + getLastRate() + "" );
+
+                        }
+
 
                         return true;
 
@@ -557,12 +567,6 @@ public class SimpleEconomyCore extends JavaPlugin {
 
                     }
 
-                }else if ( args.length == 0 ){
-
-                    player.sendMessage( ChatColor.YELLOW + "Moneyコマンドの使い方はMoney helpを実行して確認してください" );
-
-                    return true;
-
                 }else if ( args[0].equalsIgnoreCase( "help" ) ){
 
                     if ( args.length == 1 ){
@@ -578,6 +582,7 @@ public class SimpleEconomyCore extends JavaPlugin {
                     }
 
                 }
+                else if ( args[1])
                 else {
 
                     return false;
